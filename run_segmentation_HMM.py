@@ -40,49 +40,55 @@ parser = argparse.ArgumentParser(#prog = "Merge region bedMethyl data",
 
 parser.add_argument("-i","--infile_format", 
                     type = str, 
-                    help = "Should be the paths to the observable sequence file.")
+                    help = "Should be the path(s) to the phased alignment file(s). Can either be a comma seperated list of all files to be included or one file path, where the sample name is replaced by 'SAMPLE_ID'. --sample_meta is required for the latter case.") # FIXME: list option not implemented
 
-parser.add_argument("--haploblock_format", 
+parser.add_argument("-b", "--haploblock_bed_format", 
                     type = str, 
-                    help = "Should be the format for the paths to haploblock gtf")
+                    help = "Should be the path(s) to the haploblock.gtf produced by the Clair3 in the variant calling step of preprocessing. Can either be provided as a list of also be format for the paths to haploblock gtf.") # FIXME: the text is wrong
 
-parser.add_argument("-o","--outdir", 
-                    type = str, 
-                    help = "Should be the path to the desired outfile directory.")
-
-parser.add_argument("-s","--subsample", 
+parser.add_argument("--samples", # FIXME: not implemented yet
                     type = str, 
                     default = "all",
-                    help = "Comma seperated list of sample_name to be included")
-
-parser.add_argument("--only_autosomes",
-                    action='store_true',
-                    help = "Will exclude sex chromosomes and mitochondrial chromosome.")
-
-parser.add_argument("--chromosomes", 
-                    type = str, 
-                    default = False,
-                    help = "A comma seperated list of chromosomes to include.")
+                    help = "Comma seperated list of sample names to be included in the HMM model training set.")
 
 parser.add_argument("-m","--sample_meta", 
                     type = str, 
                     default = "all",
                     help = "Should be the path to the sample meta file")
 
+parser.add_argument("-s","--subsample", 
+                    type = str, 
+                    default = "all",
+                    help = "Comma seperated list of sample_name to be included")
+
+parser.add_argument("--chromosomes", 
+                    type = str, 
+                    default = False,
+                    help = "A comma seperated list of chromosomes to include.")
+
+parser.add_argument("-g","--subgroup", 
+                    type = str, 
+                    default = "all",
+                    help = "")
+
+parser.add_argument("-o","--outdir", 
+                    type = str, 
+                    help = "Should be the path to the desired outfile directory.")
+
+parser.add_argument("-f", "--flank", 
+                    type = int, 
+                    default=0,
+                    help = "The integer of flanking CpGs that should be included in the calculations for each CpG position. The higher the number the more smooth the state transitions are.") # FIXME: more precise description please
+
 parser.add_argument("--min_sample_coverage", 
                     type = int, 
                     default = 1,
-                    help = "Is the minimum sample count for a CpG to be added as an observation in the HMM")
+                    help = "Is the minimum sample count for a CpG to be added as an observation in the HMM.")
 
 parser.add_argument("--min_read_coverage", 
                     type = int,  
                     default = 1,
-                    help = "Is the minimum read count for a CpG to be added as an observation in the HMM")
-
-parser.add_argument("-p","--parameters", 
-                    type = str, 
-                    default= "parameter_values",
-                    help = "Should be the desired name of a parameter file or the file containing the parameter values produced in a previous run. A new one is created if it is the first run or none exist.")
+                    help = "Is the minimum read count for a CpG to be added as an observation in the HMM observable sequence.")
 
 parser.add_argument("--max_iterations", 
                     type = int, 
@@ -95,6 +101,19 @@ parser.add_argument("--min_iterations",
 parser.add_argument("--stop_conditions", 
                     type = float, 
                     help = "Should be a lower limit to the amount of iterations")
+
+parser.add_argument("-t", "--threads", 
+                    type = int, 
+                    help = "Should be a lower limit to the amount of iterations")
+
+parser.add_argument("-p","--parameters", 
+                    type = str, 
+                    default= "parameter_values",
+                    help = "Should be the desired name of a parameter file or the file containing the parameter values produced in a previous run. A new one is created if it is the first run or none exist.")
+
+parser.add_argument("--only_autosomes", # FIXME: should maybe not be a thing
+                    action='store_true',
+                    help = "Will exclude sex chromosomes and mitochondrial chromosome.")
 
 args = parser.parse_args()
 
@@ -172,6 +191,9 @@ def create_sample_dict_with_subsample(sample_file, subsample_list):
 
 
 def add_sample_to_haploblock_dict(sample_name, sample_haploblock_dict):
+    '''
+    A sample's haploblock info is loaded into the haploblock_dictionary. 
+    '''
 
     haplofile = sample_name.join(args.haploblock_format.split("sample_ID"))
 
@@ -214,7 +236,10 @@ def add_sample_to_haploblock_dict(sample_name, sample_haploblock_dict):
     return sample_haploblock_dict
 
 
-def create_sample_haploblock_dict():
+def create_sample_haploblock_dict(): # Calls add_sample_to_haploblock_dict
+    '''
+    All sample haploblock information is added to the haploblock dictionary.
+    '''
 
     sample_haploblock_dict = {}
 
@@ -226,6 +251,9 @@ def create_sample_haploblock_dict():
 
 
 def find_start_pos(chrom, sample_haploblock_idx):
+    '''
+    Finds the next starting point for a common haploblock, by finding the left-most sample haploblock.
+    '''
         
     first = True
     start_pos = None
@@ -243,10 +271,11 @@ def find_start_pos(chrom, sample_haploblock_idx):
         # FIXME: not necessarily sorted... but in my case it is.
         haplo_idx = sample_haploblock_idx[sample_name]
 
-        # This if statement makes sure that there are still more haploblocks from this sample. If we are at the end of the haploblock list, then we known that all haploblocks are to the right of the current start_pos
+        # This if-statement makes sure that there are still more haploblocks from this sample. If we are at the end of the haploblock list, then we known that all haploblocks are to the right of the current start_pos
         if haplo_idx < len(sample_haploblock_dict[chrom][sample_name]):
             
             # Here we define that samples next haploblock to check if it is more to the left than the current start pos
+
             sample_haploblock = sample_haploblock_dict[chrom][sample_name][haplo_idx]
             
             # If it is the first then we just define this haploblock as the left most start position
@@ -270,6 +299,9 @@ def find_start_pos(chrom, sample_haploblock_idx):
 
 
 def find_borders(chrom, end_pos, min_sample_idx, sample_haploblock_idx):
+    '''
+    Here we find the end position of the common haploblock by finding the right-most sample haploblock, which is still connected to the left-most sample haploblock. 
+    '''
 
     chrom_haploblocks = [None] * len(sample_index_dict)
 
@@ -347,6 +379,9 @@ def find_borders(chrom, end_pos, min_sample_idx, sample_haploblock_idx):
 
 
 def write_haploblock_bed(haploblock_dict):
+    '''
+    Writes a bed file with all common haploblocks. This can be loaded again if the process stopped prematurely, thereby skipping the step of creating the haploblock dict.
+    '''
 
     infile = f'{args.outdir}/HMM_haploblocks.bed'
 
@@ -361,7 +396,10 @@ def write_haploblock_bed(haploblock_dict):
     return
 
 
-def make_haploblocks():
+def make_haploblocks(): # Calls find_start_pos, find_borders, and write_haploblock_bed
+    '''
+    Information from all sample haploblocks are aggregated to form the common haploblocks. A common haploblock is defined as any sequence of CpG positions with an overlap of at least one sample haploblock.
+    '''
 
     haploblocks_dict = {}
 
@@ -1824,6 +1862,8 @@ else:
 # print("Sample data was loaded in:", time.strftime("%H:%M:%S", time.gmtime(elapsed_time)), file=sys.stderr)
 
 print(f"\nThis dataset consists of the {len(sample_meta_dict)} samples: {list(sample_meta_dict.keys())}", file=sys.stderr)
+
+# If the algorithm stopped prematurely, the following will make sure the training is continued where it left off.
 
 if os.path.exists(f'{args.outdir}/Observable_data'):
 
