@@ -17,10 +17,10 @@ The following steps are performed on all samples, that will be included in the H
 
 ### Installation 
 
-'''bash
+```bash
 conda create -n NMS -c bioconda -c conda-forge -c HCC dorado clair3
 conda activate NMS
-'''
+```
 
 Tips and tricks, before you start...
 
@@ -38,11 +38,11 @@ For this you need;
 
 The basecalling and modification models should match the specs used for nanopore long-read sequencing. For more information on how to choose the correct models go to {link to dorado}. It is recommended to use GPUs for this process and it often takes days to finish.
 
-'''bash
+```bash
 
 dorado basecaller {dorado_basecalling_model} {pod5_dir} --modified-bases-models {remora_modification_model} > {basecall_modbam}
 
-'''
+```
 
 This should result in a modbam file containing read sequences and modification probabilities for CpG sites.
 
@@ -59,7 +59,7 @@ The recommended amount of threads is 32 or 64. Depending on the size of the modb
 
 The alignments are sorted and indexed for vizualization (IGV is recommended). The alignments are also filtered to only include uniquely mapped reads. In this case I filter for a minimum query length of 500 and minimum mapping quality of 10. These thresholds will depend on the data provided. Use quality control to determine proper thresholds. 
 
-'''bash
+```bash
 
 dorado aligner -t {threads} {reference} {basecall_modbam} | samtools sort > {alignment}
 
@@ -76,7 +76,7 @@ samtools view \
 
 samtools index -@ {threads} {filtered_alignment}
 
-'''
+```
 
 ### Variant calling and phasing
 
@@ -89,7 +89,7 @@ For this you need;
 
 Variants are first called using Clair3 (reference), whereafter whatshap (reference) is used to phase and haplotag reads.
 
-'''bash
+```bash
 
 run_clair3.sh \
         --bam_fn={filtered_alignment} \
@@ -125,13 +125,13 @@ whatshap haplotag \
         --bam --with-header \
     > {phased_filtered_alignment}
 
-'''
+```
 
 ### Extracting modification data
 
 The last step to be performed on each sample individually before running NMS is extraction of the phased methylation data. 
 
-'''bash
+```bash
 
 modkit pileup \
         {phased_filtered_alignment} \
@@ -145,7 +145,7 @@ modkit pileup \
         --combine-strands \
         --combine-mods
 
-'''
+```
 
 ### Segmenting the genome
 
@@ -153,14 +153,14 @@ Once you have phased modification count data and haploblock bed files for each s
 
 There are two main methods to indicate which samples should be included in the HMM model training; The first is to make a comma seperated list of the sample names you want to include, like sample1,sample2. As mentioned before, it is important that the file path to the phased modification count and the haploblock bed files follow the same format.
 
-'''bash
+```bash
 
 python run_segmentation_HMM.py \
     --infile_format {phased_modification_count_format} \
     --haploblock_format {haploblock_bed_format} \
     --samples {comma-seperated list of samples}
 
-'''
+```
 
 The second and recommended way to name the samples you want to include is by creating a sample meta file. This method is preferable due to its ability to carry other relevant sample information, into post analysis, like group-wise comparisons of methylation (not implemented yet). 
 
@@ -183,14 +183,14 @@ An example of a sample meta file could be as the following table.
 
 If you want to use all samples in the sample meta file the following command is sufficient.
 
-'''bash
+```bash
 
 python run_segmentation_HMM.py \
     --infile_format {phased_modification_count_format} \
     --haploblock_format {haploblock_bed_format} \
     --sample_meta {sample_meta_file}
 
-'''
+```
 
 #### Choosing your training dataset
 
