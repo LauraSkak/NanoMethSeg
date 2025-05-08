@@ -17,6 +17,8 @@ The following steps are performed on all samples, that will be included in the H
 
 ### Installation 
 
+!!! NOT ACCURATE YET !!!
+
 ```bash
 conda create -n NMS -c bioconda -c conda-forge -c HCC dorado clair3
 conda activate NMS
