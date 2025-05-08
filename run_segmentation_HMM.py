@@ -115,6 +115,10 @@ parser.add_argument("--only_autosomes", # FIXME: should maybe not be a thing
                     action='store_true',
                     help = "Will exclude sex chromosomes and mitochondrial chromosome.")
 
+parser.add_argument("--reinitiate", # FIXME: not implemented yet
+                    action='store_true',
+                    help = "This will remove any existing training data and restart model training from the initial parameter values.")
+
 args = parser.parse_args()
 
 haploblock_bed = f'{args.outdir}/HMM_haploblocks.bed'
