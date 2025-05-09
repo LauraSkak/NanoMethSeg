@@ -237,6 +237,11 @@ The default --flank count is 0, but this can be increased to smooth out methylat
 If you want to limit your HMM model training and genome segmentation to regions which have a certain minimum amount of data you can set a minimum read and/or sample count for a CpG site to be included. This is generally not necessary since a lower coverage also leads to lower posterior probabilities, which can then be taken into consideration in post analysis. 
 
 
+## Suggestions for uses
+
+!! Show an describe how the output can be used for research in genomic imprinting, X-inactivation and group-wize differential methylation !!
+
+
 ## FAQ
 
 Since this software is new I would appreciate any input on how to improve the usability of NanoMethSeg. 

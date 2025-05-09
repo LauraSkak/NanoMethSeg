@@ -42,23 +42,23 @@ parser.add_argument("-i","--infile_format",
                     type = str, 
                     help = "Should be the path(s) to the phased alignment file(s). Can either be a comma seperated list of all files to be included or one file path, where the sample name is replaced by 'SAMPLE_ID'. --sample_meta is required for the latter case.") # FIXME: list option not implemented
 
-parser.add_argument("-b", "--haploblock_bed_format", 
+parser.add_argument("-b", "--haploblock_format", 
                     type = str, 
                     help = "Should be the path(s) to the haploblock.gtf produced by the Clair3 in the variant calling step of preprocessing. Can either be provided as a list of also be format for the paths to haploblock gtf.") # FIXME: the text is wrong
 
-parser.add_argument("--samples", # FIXME: not implemented yet
+parser.add_argument("--samples",
                     type = str, 
-                    default = "all",
+                    default = False,
                     help = "Comma seperated list of sample names to be included in the HMM model training set.")
 
 parser.add_argument("-m","--sample_meta", 
                     type = str, 
-                    default = "all",
+                    default = False,
                     help = "Should be the path to the sample meta file")
 
 parser.add_argument("-s","--subsample", 
                     type = str, 
-                    default = "all",
+                    default = False,
                     help = "Comma seperated list of sample_name to be included")
 
 parser.add_argument("--chromosomes", 
@@ -66,9 +66,14 @@ parser.add_argument("--chromosomes",
                     default = False,
                     help = "A comma seperated list of chromosomes to include.")
 
-parser.add_argument("-g","--subgroup", 
+parser.add_argument("--exclude_chromosomes",
                     type = str, 
-                    default = "all",
+                    default = False,
+                    help = "A comma seperated list of chromosomes to exclude.")
+
+parser.add_argument("-g","--subgroup", 
+                    nargs= 2, 
+                    default = False,
                     help = "")
 
 parser.add_argument("-o","--outdir", 
@@ -132,66 +137,148 @@ thread_count = 32
 # FUNCTIONS                                                                                        #
 ####################################################################################################
 
-def create_sample_dict(sample_file):
+def create_sample_dict():
     
     sample_dict = {}
     sample_index_dict = {}
     index_count = 0
 
-    with open(sample_file, 'r') as file:
-        lines = file.readlines()
+    if args.sample_meta != False:
 
-        for line in lines[1:]:
-            row = line.strip().split("\t")
+        sample_file = args.sample_meta
 
-            sampleid = row[1]
+        with open(sample_file, 'r') as file:
+
+            header = file.readline().strip().split("\t")
             
-            values = [sampleid]
-            
-            if len(row)> 2:
-                for i in range(2,len(row)):
-                    samplegroup = row[i]
-                    
-                    values.append(samplegroup)
-            
-            sample_dict[sampleid] = values
+            if args.subgroup != False:
 
-            sample_index_dict[sampleid] = index_count
-            index_count += 1
-            
-    return sample_dict, sample_index_dict
+                group_name = args.subgroup[0]
+                group_levels = args.subgroup[1].split(",")
+                group_column_i = False
 
+                for i in range(2, len(header)):
 
-def create_sample_dict_with_subsample(sample_file, subsample_list):
-    
-    sample_dict = {}
-    sample_index_dict = {}
-    index_count = 0
+                    if group_name == header[i]:
 
-    with open(sample_file, 'r') as file:
-        lines = file.readlines()
+                        group_column_i = i
 
-        for line in lines[1:]:
-            row = line.strip().split("\t")
+                        break
+                
+                if group_column_i == False:
 
-            sampleid = row[1]
-            
-            values = [sampleid]
-            
-            if len(row)> 2:
-                for i in range(2,len(row)):
-                    samplegroup = row[i]
-                    
-                    values.append(samplegroup)
-            
-            if sampleid in subsample_list:
+                    print("Group name not found as a column header. Check if the --subgroup input is correct.", file=sys.stderr) # FIXME: throw error maybe?
+                    exit()
 
+            for line in file.readlines():
+
+                row = line.strip().split("\t")
+
+                sampleid = row[1]
+
+                if args.subsample != False and sampleid not in args.subsample.split(","):
+
+                    continue
+                
+                values = [sampleid]
+                
+                if len(row) > 2:
+
+                    for i in range(2,len(row)):
+
+                        samplegroup = row[i]
+
+                        if args.subgroup != False and i == group_column_i and samplegroup not in group_levels:
+
+                            break
+
+                        values.append(samplegroup)
+
+                    if args.subgroup != False and i == group_column_i and samplegroup not in group_levels:
+
+                        continue
+                
                 sample_dict[sampleid] = values
 
                 sample_index_dict[sampleid] = index_count
                 index_count += 1
+    
+    elif args.samples != False:
+
+        for sample in args.samples.split(","):
+            
+            sample_dict[sample] = sample
+            sample_index_dict[sample] = index_count
+            index_count += 1
+
+    else:
+
+        print("Missing either a sample meta file or a list of samples. Use flags --sample_meta or --samples before continuing.", file=sys.stderr) # FIXME: throw error maybe?
+
+        exit()
             
     return sample_dict, sample_index_dict
+
+# def create_sample_dict(sample_file):
+    
+#     sample_dict = {}
+#     sample_index_dict = {}
+#     index_count = 0
+
+#     with open(sample_file, 'r') as file:
+#         lines = file.readlines()
+
+#         for line in lines[1:]:
+#             row = line.strip().split("\t")
+
+#             sampleid = row[1]
+            
+#             values = [sampleid]
+            
+#             if len(row)> 2:
+#                 for i in range(2,len(row)):
+#                     samplegroup = row[i]
+                    
+#                     values.append(samplegroup)
+            
+#             sample_dict[sampleid] = values
+
+#             sample_index_dict[sampleid] = index_count
+#             index_count += 1
+            
+#     return sample_dict, sample_index_dict
+
+
+# def create_sample_dict_with_subsample(sample_file, subsample_list):
+    
+#     sample_dict = {}
+#     sample_index_dict = {}
+#     index_count = 0
+
+#     with open(sample_file, 'r') as file:
+#         lines = file.readlines()
+
+#         for line in lines[1:]:
+#             row = line.strip().split("\t")
+
+#             sampleid = row[1]
+            
+#             values = [sampleid]
+            
+#             if len(row)> 2:
+#                 for i in range(2,len(row)):
+#                     samplegroup = row[i]
+                    
+#                     values.append(samplegroup)
+            
+#             if sampleid in subsample_list:
+
+#                 sample_dict[sampleid] = values
+
+#                 sample_index_dict[sampleid] = index_count
+#                 index_count += 1
+            
+#     return sample_dict, sample_index_dict
 
 
 def add_sample_to_haploblock_dict(sample_name, sample_haploblock_dict):
@@ -220,6 +307,10 @@ def add_sample_to_haploblock_dict(sample_name, sample_haploblock_dict):
                 if chrom not in args.chromosomes.split(","):
 
                     continue
+
+            if args.exclude_chromosomes and chrom in args.exclude_chromosomes.split(","):
+
+                continue
 
             if args.only_autosomes and chrom in ["chrX", "chrY", "chrM"]:
 
@@ -484,6 +575,10 @@ def create_subdata_dict(sample_name, haplotype):
                 if chrom not in args.chromosomes.split(","):
 
                     continue
+
+            if args.exclude_chromosomes and chrom in args.exclude_chromosomes.split(","):
+
+                continue
 
             if args.only_autosomes and chrom in ["chrX", "chrY", "chrM"]:
 
@@ -1851,15 +1946,17 @@ else:
 
 # process_start_time = time.time()
 
-if args.subsample == "all":
+# if args.sample_meta != False and args.subsample == False or args.subgroup != False:
 
-    sample_meta_dict, sample_index_dict = create_sample_dict(args.sample_meta)
+#     sample_meta_dict, sample_index_dict = create_sample_dict(args.sample_meta)
 
-else:
+# else:
 
-    subsample_list = args.subsample.split(",")
+#     subsample_list = args.subsample.split(",")
 
-    sample_meta_dict, sample_index_dict = create_sample_dict_with_subsample(args.sample_meta, subsample_list)
+#     sample_meta_dict, sample_index_dict = create_sample_dict_with_subsample(args.sample_meta, subsample_list)
+
+sample_meta_dict, sample_index_dict = create_sample_dict()
 
 # elapsed_time = time.time() - process_start_time
 
