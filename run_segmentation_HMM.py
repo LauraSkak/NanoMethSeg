@@ -27,6 +27,7 @@ from concurrent.futures import thread, process
 from scipy.stats import binom
 import functools
 from mergedeep import merge
+import termplotlib as tpl
 
 np.seterr(divide = 'ignore') 
 
@@ -218,67 +219,6 @@ def create_sample_dict():
         exit()
             
     return sample_dict, sample_index_dict
-
-# def create_sample_dict(sample_file):
-    
-#     sample_dict = {}
-#     sample_index_dict = {}
-#     index_count = 0
-
-#     with open(sample_file, 'r') as file:
-#         lines = file.readlines()
-
-#         for line in lines[1:]:
-#             row = line.strip().split("\t")
-
-#             sampleid = row[1]
-            
-#             values = [sampleid]
-            
-#             if len(row)> 2:
-#                 for i in range(2,len(row)):
-#                     samplegroup = row[i]
-                    
-#                     values.append(samplegroup)
-            
-#             sample_dict[sampleid] = values
-
-#             sample_index_dict[sampleid] = index_count
-#             index_count += 1
-            
-#     return sample_dict, sample_index_dict
-
-
-# def create_sample_dict_with_subsample(sample_file, subsample_list):
-    
-#     sample_dict = {}
-#     sample_index_dict = {}
-#     index_count = 0
-
-#     with open(sample_file, 'r') as file:
-#         lines = file.readlines()
-
-#         for line in lines[1:]:
-#             row = line.strip().split("\t")
-
-#             sampleid = row[1]
-            
-#             values = [sampleid]
-            
-#             if len(row)> 2:
-#                 for i in range(2,len(row)):
-#                     samplegroup = row[i]
-                    
-#                     values.append(samplegroup)
-            
-#             if sampleid in subsample_list:
-
-#                 sample_dict[sampleid] = values
-
-#                 sample_index_dict[sampleid] = index_count
-#                 index_count += 1
-            
-#     return sample_dict, sample_index_dict
 
 
 def add_sample_to_haploblock_dict(sample_name, sample_haploblock_dict):
@@ -920,20 +860,42 @@ def load_obs_subdict(infile):
 
     for sample_name in sample_meta_dict:
 
+        # sample_idx = sample_index_dict[sample_name]
+
+        # for i in range(len(site_list)):
+
+        #     site = site_list[i]
+
+        #     if sample_name in data_dict[site]:
+
+        #         site_dict = data_dict[site][sample_name]
+
+        #         obs_matrix[0, 0, sample_idx, i] = site_dict["1"][0]
+        #         obs_matrix[1, 0, sample_idx, i] = site_dict["2"][0]
+        #         obs_matrix[0, 1, sample_idx, i] = site_dict["1"][1]
+        #         obs_matrix[1, 1, sample_idx, i] = site_dict["2"][1]
+
         sample_idx = sample_index_dict[sample_name]
 
-        for i in range(len(site_list)):
+        for i in range(args.flank,len(site_list)-args.flank):
 
-            site = site_list[i]
+            obs_matrix[0, 0, sample_idx, i] = 0
+            obs_matrix[1, 0, sample_idx, i] = 0
+            obs_matrix[0, 1, sample_idx, i] = 0
+            obs_matrix[1, 1, sample_idx, i] = 0
 
-            if sample_name in data_dict[site]:
+            for j in range(i-args.flank,i+args.flank+1):
 
-                site_dict = data_dict[site][sample_name]
+                site = site_list[j]
 
-                obs_matrix[0, 0, sample_idx, i] = site_dict["1"][0]
-                obs_matrix[1, 0, sample_idx, i] = site_dict["2"][0]
-                obs_matrix[0, 1, sample_idx, i] = site_dict["1"][1]
-                obs_matrix[1, 1, sample_idx, i] = site_dict["2"][1]
+                if sample_name in data_dict[site]:
+
+                    site_dict = data_dict[site][sample_name]
+
+                    obs_matrix[0, 0, sample_idx, i] += site_dict["1"][0]
+                    obs_matrix[1, 0, sample_idx, i] += site_dict["2"][0]
+                    obs_matrix[0, 1, sample_idx, i] += site_dict["1"][1]
+                    obs_matrix[1, 1, sample_idx, i] += site_dict["2"][1]
 
     return obs_matrix, chrom, haploblock
 
@@ -971,18 +933,38 @@ def add_sample_to_obs_dict(chrom, haploblock, sample_name, site_list, obs_dict):
 
     sample_idx = sample_index_dict[sample_name]
 
-    for i in range(0,len(site_list)):
+    for i in range(args.flank,len(site_list)-args.flank):
 
-        site = site_list[i]
+        obs_dict[chrom][haploblock][0, 0, sample_idx, i] = 0
+        obs_dict[chrom][haploblock][1, 0, sample_idx, i] = 0
+        obs_dict[chrom][haploblock][0, 1, sample_idx, i] = 0
+        obs_dict[chrom][haploblock][1, 1, sample_idx, i] = 0
 
-        if sample_name in data_dict[chrom][haploblock][site]:
+        for j in range(i-args.flank,i+args.flank+1):
 
-            site_dict = data_dict[chrom][haploblock][site][sample_name]
+            site = site_list[j]
 
-            obs_dict[chrom][haploblock][0, 0, sample_idx, i] = site_dict["1"][0]
-            obs_dict[chrom][haploblock][1, 0, sample_idx, i] = site_dict["2"][0]
-            obs_dict[chrom][haploblock][0, 1, sample_idx, i] = site_dict["1"][1]
-            obs_dict[chrom][haploblock][1, 1, sample_idx, i] = site_dict["2"][1]
+            if sample_name in data_dict[chrom][haploblock][site]:
+
+                site_dict = data_dict[chrom][haploblock][site][sample_name]
+
+                obs_dict[chrom][haploblock][0, 0, sample_idx, i] += site_dict["1"][0]
+                obs_dict[chrom][haploblock][1, 0, sample_idx, i] += site_dict["2"][0]
+                obs_dict[chrom][haploblock][0, 1, sample_idx, i] += site_dict["1"][1]
+                obs_dict[chrom][haploblock][1, 1, sample_idx, i] += site_dict["2"][1]
+
+    # for i in range(0,len(site_list)):
+
+        # site = site_list[i]
+
+        # if sample_name in data_dict[chrom][haploblock][site]:
+
+        #     site_dict = data_dict[chrom][haploblock][site][sample_name]
+
+        #     obs_dict[chrom][haploblock][0, 0, sample_idx, i] = site_dict["1"][0]
+        #     obs_dict[chrom][haploblock][1, 0, sample_idx, i] = site_dict["2"][0]
+        #     obs_dict[chrom][haploblock][0, 1, sample_idx, i] = site_dict["1"][1]
+        #     obs_dict[chrom][haploblock][1, 1, sample_idx, i] = site_dict["2"][1]
 
     return obs_dict
 
@@ -1409,7 +1391,7 @@ def fill_the_HMM_tables_for_haploblock(args):
         elapsed_time = process_end_time - process_start_time
 
         # print(f'\nFinished all tables for {haploblock} in {time.strftime("%H:%M:%S", time.gmtime(elapsed_time))}\n')
-        print(f'Finished all tables for {haploblock} in {time.strftime("%H:%M:%S", time.gmtime(elapsed_time))}')
+        print(f'Finished all tables for {haploblock} in {time.strftime("%H:%M:%S", time.gmtime(elapsed_time))}', file=sys.stderr)
 
         thread_outfile_line_list.append("{}\n".format("\t".join(str(element) for element in [psutil.Process().cpu_num(), threading.get_ident(), os.getpid(), process_start_time, process_end_time, haploblock, "filling tables"])))
 
@@ -1886,6 +1868,28 @@ def update_parameter_values():
     return start_probs.result(), end_probs.result(), a_table.result(), b_table.result()
 
 
+def print_forward_probability_graph():
+
+    parameter_file = f'{args.outdir}/{args.parameters}'
+
+    forward_prob_list = []
+
+    with open(parameter_file, 'r') as file:
+
+        for line in file.readlines()[1:]:
+
+            row = line.strip().split("\t")
+
+            forward_prob_list.append(float(row[8]))
+    
+    fig = tpl.figure()
+    fig.plot(np.arange(1, len(forward_prob_list)), np.array(forward_prob_list[1:]), label="data", width=100, height=30)
+    fig.show()
+
+    fig = tpl.figure()
+    fig.plot(np.arange(len(forward_prob_list)-10, len(forward_prob_list)), np.array(forward_prob_list[len(forward_prob_list)-10:]), label="data", width=100, height=30)
+    fig.show()
+
 
 ####################################################################################################
 # SET CONSTANTS                                                                                    #
@@ -2189,6 +2193,8 @@ for iteration in range(start_iteration, args.max_iterations):
     diff =  total_forward_prob - new_total_forward_prob
     
     print('\nDifference in forward probability:', diff, file=sys.stderr)
+
+    print_forward_probability_graph()
 
     total_forward_prob = new_total_forward_prob
 
